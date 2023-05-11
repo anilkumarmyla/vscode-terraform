@@ -66,8 +66,7 @@ export class TerraformCloudFeature implements vscode.Disposable {
 
     const runDataProvider = new RunTreeDataProvider(ctx);
     const workspaceDataProvider = new WorkspaceTreeDataProvider(ctx, runDataProvider);
-    const projectDataProvider = new ProjectTreeDataProvider(ctx, workspaceDataProvider);
-    ctx.subscriptions.push(projectDataProvider, workspaceDataProvider, runDataProvider);
+    ctx.subscriptions.push(workspaceDataProvider, runDataProvider);
 
     const workspaceView = vscode.window.createTreeView('terraform.cloud.workspaces', {
       canSelectMany: false,
@@ -97,67 +96,6 @@ export class TerraformCloudFeature implements vscode.Disposable {
   }
 }
 
-export class ProjectTreeDataProvider implements vscode.TreeDataProvider<ProjectTreeItem>, vscode.Disposable {
-  private readonly didChangeTreeData = new vscode.EventEmitter<void | ProjectTreeItem>();
-  public readonly onDidChangeTreeData = this.didChangeTreeData.event;
-
-  constructor(private ctx: vscode.ExtensionContext, private workspaceDataProvider: WorkspaceTreeDataProvider) {
-    vscode.commands.registerCommand('terraform.cloud.projects.refresh', () => this.refresh());
-    const projectView = vscode.window.createTreeView('terraform.cloud.projects', {
-      canSelectMany: false,
-      showCollapseAll: true,
-      treeDataProvider: this,
-    });
-    projectView.onDidChangeSelection((event) => {
-      const projectItem = event.selection[0];
-      // call the Workspace View with the selected projectid
-      this.workspaceDataProvider.refresh(projectItem.id);
-    });
-    ctx.subscriptions.push(projectView);
-  }
-
-  refresh(): void {
-    this.didChangeTreeData.fire();
-  }
-
-  getTreeItem(element: ProjectTreeItem): ProjectTreeItem | Thenable<ProjectTreeItem> {
-    return element;
-  }
-
-  getChildren(element?: ProjectTreeItem | undefined): vscode.ProviderResult<ProjectTreeItem[]> {
-    const organization = this.ctx.globalState.get('terraform.cloud.organization', '');
-
-    try {
-      return this.getProjects(organization);
-    } catch (error) {
-      return [];
-    }
-  }
-
-  private async getProjects(organization: string) {
-    if (organization === '') {
-      return [];
-    }
-
-    const response = await apiClient.listProjects({
-      params: {
-        organization_name: organization,
-      },
-    });
-    const projects = response.data;
-    const items: ProjectTreeItem[] = [];
-    for (let index = 0; index < projects.length; index++) {
-      const element = projects[index];
-      items.push(new ProjectTreeItem(element.attributes.name, element.id));
-    }
-    return items;
-  }
-
-  dispose() {
-    //
-  }
-}
-
 export class WorkspaceTreeDataProvider implements vscode.TreeDataProvider<WorkspaceTreeItem>, vscode.Disposable {
   private readonly didChangeTreeData = new vscode.EventEmitter<void | WorkspaceTreeItem>();
   public readonly onDidChangeTreeData = this.didChangeTreeData.event;
@@ -165,6 +103,45 @@ export class WorkspaceTreeDataProvider implements vscode.TreeDataProvider<Worksp
   private projectID = '';
 
   constructor(private ctx: vscode.ExtensionContext, private runDataProvider: RunTreeDataProvider) {
+    vscode.commands.registerCommand('terraform.cloud.workspaces.filterByProject', async () => {
+      const organization = this.ctx.globalState.get('terraform.cloud.organization', '');
+      if (organization === '') {
+        return [];
+      }
+
+      const response = await apiClient.listProjects({
+        params: {
+          organization_name: organization,
+        },
+      });
+      const orgs = response.data;
+
+      const items: vscode.QuickPickItem[] = [];
+      for (let index = 0; index < orgs.length; index++) {
+        const element = orgs[index];
+        items.push({
+          label: element.attributes.name,
+          detail: element.id,
+        });
+      }
+
+      const answer = await vscode.window.showQuickPick(items, {
+        canPickMany: false,
+        ignoreFocusOut: true,
+        placeHolder: 'Choose a Project to filter Workspaces. Hit enter to select the first',
+        title: 'Choose a Project',
+      });
+
+      if (answer === undefined) {
+        return;
+      }
+
+      vscode.window.showInformationMessage(`Chose ${answer} project`);
+      // this.projectID = answer;
+
+      this.refresh(answer.detail);
+      this.runDataProvider.refresh();
+    });
     vscode.commands.registerCommand('terraform.cloud.workspaces.listAll', () => {
       this.projectID = '';
       // TODO This refreshes the workspace list without a project filter, but still
@@ -190,12 +167,8 @@ export class WorkspaceTreeDataProvider implements vscode.TreeDataProvider<Worksp
   }
 
   refresh(projectID?: string): void {
-    if (projectID === undefined && this.projectID !== '') {
-      this.didChangeTreeData.fire();
-    } else {
-      this.projectID = projectID ?? '';
-      this.didChangeTreeData.fire();
-    }
+    this.projectID = projectID ?? '';
+    this.didChangeTreeData.fire();
   }
 
   getTreeItem(element: WorkspaceTreeItem): WorkspaceTreeItem | Thenable<WorkspaceTreeItem> {
@@ -318,12 +291,6 @@ export class RunTreeDataProvider implements vscode.TreeDataProvider<vscode.TreeI
 
   dispose() {
     //
-  }
-}
-
-class ProjectTreeItem extends vscode.TreeItem {
-  constructor(public name: string, public id: string) {
-    super(name, vscode.TreeItemCollapsibleState.None);
   }
 }
 

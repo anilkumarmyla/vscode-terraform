@@ -473,6 +473,11 @@
         "icon": "$(book)"
       },
       {
+        "command": "terraform.cloud.workspaces.filterByProject",
+        "title": "Filter by Project",
+        "icon": "$(gear)"
+      },
+      {
         "command": "terraform.cloud.runs.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
@@ -558,6 +563,11 @@
           "group": "navigation"
         },
         {
+          "command": "terraform.cloud.workspaces.filterByProject",
+          "when": "view == terraform.cloud.workspaces",
+          "group": "navigation"
+        },
+        {
           "command": "terraform.cloud.runs.refresh",
           "when": "view == terraform.cloud.runs",
           "group": "navigation"
@@ -591,11 +601,6 @@
         }
       ],
       "terraform-cloud": [
-        {
-          "id": "terraform.cloud.projects",
-          "name": "Projects",
-          "visibility": "collapsed"
-        },
         {
           "id": "terraform.cloud.workspaces",
           "name": "Workspaces"

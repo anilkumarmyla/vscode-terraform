@@ -32,13 +32,7 @@ import { getInitializationOptions } from './settings';
 import { TerraformLSCommands } from './commands/terraformls';
 import { TerraformCommands } from './commands/terraform';
 import { TerraformVersionFeature } from './features/terraformVersion';
-import { TerraformCloudAuthenticationProvider } from './providers/authenticationProvider';
-import {
-  ProjectTreeDataProvider,
-  WorkspaceTreeDataProvider,
-  RunTreeDataProvider,
-  TerraformCloudFeature,
-} from './providers/terraformCloudProvider';
+import { TerraformCloudFeature } from './providers/terraformCloudProvider';
 
 const id = 'terraform';
 const brand = `HashiCorp Terraform`;
